@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-def define_transforms(image_size=(64, 64), transform_mean=[0.485, 0.456, 0.406], transform_std = [0.229, 0.224, 0.225]):
+def define_transforms(image_size, transform_mean, transform_std):
     """Define training and validation image transformations."""
 
     # Training transforms with data augmentation
@@ -26,6 +26,8 @@ def define_transforms(image_size=(64, 64), transform_mean=[0.485, 0.456, 0.406],
         transforms.Normalize(mean=transform_mean, std=transform_std),
     ])
 
+    print("Training transforms: Resize, flip, rotation, jitter, ToTensor, Normalize")
+    print("Validation transforms: Resize, ToTensor, Normalize")
     return train_transforms, val_transforms
 
 
@@ -106,7 +108,7 @@ def split_dataset(image_dataset, train_ratio=0.70, val_ratio=0.15, test_ratio=0.
     return train_dataset, val_dataset, test_dataset
 
 
-def create_dataloaders(train_dataset, val_dataset, test_dataset, train_transforms, val_transforms, batch_size=32):
+def create_dataloaders(train_dataset, val_dataset, test_dataset, batch_size, train_transforms, val_transforms):
     print(f"\nCreating DataLoaders with batch_size={batch_size}...")
 
     train_paths, train_labels = zip(*train_dataset) if train_dataset else ([], [])
