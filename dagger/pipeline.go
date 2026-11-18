@@ -41,7 +41,7 @@ func getAppEnvironment() string {
 }
 
 func main() {
-	if !checkFileExists("Dockerfile") {
+	if !checkFileExists("../docker/Dockerfile.dockerfile") {
 		fmt.Println("Error: Dockerfile is missing.")
 		return
 	}

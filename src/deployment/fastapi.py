@@ -1,4 +1,5 @@
-from src.deployment.fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import Response
 import urllib.error
 import urllib.request
 from pathlib import Path

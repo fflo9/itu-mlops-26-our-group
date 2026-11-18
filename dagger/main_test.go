@@ -43,18 +43,19 @@ func TestGetEnvironmentMode(t *testing.T) {
 	}
 }
 
-func TestIsValidImageName(name string) bool {
-	if name == "" {
-		return false
+func TestIsValidImageName(t *testing.T) {
+	if isValidImageName("") {
+		t.Error("Expected empty name to be invalid")
 	}
-	for _, char := range name {
-		if char == ' ' {
-			return false
-		}
-	}
-	return true
-}
 
+	if isValidImageName("my image") {
+		t.Error("Expected name containing spaces to be invalid")
+	}
+
+	if !isValidImageName("my-image") {
+		t.Error("Expected my-image to be valid")
+	}
+}
 func TestCheckFileExists(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -63,7 +64,7 @@ func TestCheckFileExists(t *testing.T) {
 	}{
 		{
 			name:        "Dockerfile should exist",
-			path:        "Dockerfile",
+			path:        "../docker/Dockerfile.dockerfile",
 			expectExist: true,
 		},
 		{
