@@ -3,42 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-
 	"dagger.io/dagger"
 )
 
-// Helper Functions
-
-func isValidImageName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, char := range name {
-		if char == ' ' {
-			return false
-		}
-	}
-	return true
-}
-
-func checkFileExists(filePath string) bool {
-	info, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir() //returns true if it exists and is a file
-}
-
-func getAppEnvironment() string {
-	env := os.Getenv("APP_ENV")
-
-	//if nothing was set, default to development
-	if env == "" {
-		return "development"
-	}
-	return env
-}
 
 func main() {
 	if !checkFileExists("../docker/Dockerfile.dockerfile") {
