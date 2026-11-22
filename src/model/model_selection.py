@@ -12,11 +12,13 @@ from pprint import pprint
 
 warnings.filterwarnings('ignore')
 
-def setup_mlflow_tracking(experiment_name, mlflow_state_dir="mlflow-state"):
+mlflow_state_dir = "mlflow_state"
+mlflow_tracking_uri = f"sqlite:///{mlflow_state_dir}/mlflow.db"
+mlflow_artifact_location = "./mlflow-state/artifacts"
+
+def setup_mlflow_tracking(experiment_name):
     """Set up MLflow tracking URI and experiment."""
     os.makedirs(mlflow_state_dir, exist_ok=True)
-    mlflow_tracking_uri = f"sqlite:///{mlflow_state_dir}/mlflow.db"
-    mlflow_artifact_location = "./mlflow-state/artifacts"
     
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     experiment = mlflow.get_experiment_by_name(experiment_name)
@@ -85,7 +87,7 @@ def wait_for_deployment(client, model_name, version, stage='Staging', max_attemp
     return status
 
 
-def promote_model(client, model_name, run_id, artifact_path, train_model_score, prod_model_score):
+def promote_model(client, model_name, run_id, artifact_path):
     """Compare and promote the best model through Staging to Production if it wins."""
     # Find the registered version that belongs to the winning run
     versions = [mv for mv in client.search_model_versions(f"name='{model_name}'") if mv.run_id == run_id]
