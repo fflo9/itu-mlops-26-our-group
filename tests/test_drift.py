@@ -1,5 +1,7 @@
-from _ import laod_inference_logs, load_baseline_stats, detect_drit
+from src.deployment.drift_detection import load_inference_logs, load_baseline_stats, detect_drift
 import requests
+artifact_dir = "artifacts"
+inference_log_path = artifact_dir + "/inference_log.json"
 
 def test_drift(drift_default_days,):
     logs = load_inference_logs(inference_log_path)

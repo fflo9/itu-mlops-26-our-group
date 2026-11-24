@@ -1,4 +1,4 @@
-from src.deployment.fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, Query, Request, Response
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -18,7 +18,7 @@ model_path = export_dir
 
 app = FastAPI(docs_url=None, openapi_url=None, redoc_url=None)
 
-scoring_proc = start_scoring_server()
+#scoring_proc = start_scoring_server()
 
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 import mlflow
 from mlflow.tracking import MlflowClient
 from pprint import pprint
+import stat
 
 warnings.filterwarnings('ignore')
 
@@ -31,6 +32,10 @@ def setup_mlflow_tracking(experiment_name):
 def find_best_run(experiment_name):
     """Find the best run of the experiment based on the highest test F1-score."""
     experiment = mlflow.get_experiment_by_name(experiment_name)
+
+    if experiment is None:
+        raise ValueError(f"Experiment '{experiment_name}' does not exist.")
+    
     experiment_ids = [experiment.experiment_id]
     
     experiment_best = mlflow.search_runs(
@@ -38,6 +43,16 @@ def find_best_run(experiment_name):
         order_by=["metrics.test_f1_score DESC"],
         max_results=1,
     ).iloc[0]
+
+    #cheching
+    runs = mlflow.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        order_by=["metrics.test_f1_score DESC"],
+        max_results=1,
+    )
+
+    if runs.empty:
+        raise ValueError(f"No runs found in experiment '{experiment_name}'.")
     
     run_id = experiment_best["run_id"]
     score = experiment_best.get("metrics.test_f1_score")
@@ -152,13 +167,37 @@ def export_serving_model(client, model_name, experiment_name, artifact_path, exp
     model_uri, description = resolve_model_uri()
     print(f"Exporting: {description}\n  Source: {model_uri}")
 
-    Path(export_dir).parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    #Path(export_dir).parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    #with tempfile.TemporaryDirectory(dir=Path(export_dir).parent) as tmp:
+        #download_dir = mlflow.artifacts.download_artifacts(artifact_uri=model_uri, dst_path=tmp)
+        #if Path(export_dir).exists():
+            ##shutil.rmtree(export_dir)
+            #def handle_remove_readonly(func, path, exc_info):
+                #os.chmod(path, stat.S_IWRITE)
+                #func(path)
+
+            #if os.path.exists(export_dir):
+                #shutil.rmtree(export_dir, onerror=handle_remove_readonly)
+    #shutil.move(str(download_dir), export_dir)
+    #print(f"  Exported to: {Path(export_dir).resolve()}")
+    Path(export_dir).parent.mkdir(parents=True, exist_ok=True)
+
+    def handle_remove_readonly(func, path, exc_info):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+
     with tempfile.TemporaryDirectory(dir=Path(export_dir).parent) as tmp:
-        download_dir = mlflow.artifacts.download_artifacts(artifact_uri=model_uri, dst_path=tmp)
-        if Path(export_dir).exists():
-            shutil.rmtree(export_dir)
+        download_dir = mlflow.artifacts.download_artifacts(
+        artifact_uri=model_uri,
+        dst_path=tmp
+        )
+
+        if os.path.exists(export_dir):
+            shutil.rmtree(export_dir, onerror=handle_remove_readonly)
+
         shutil.move(str(download_dir), export_dir)
-    print(f"  Exported to: {Path(export_dir).resolve()}")
+
+    print(f" Exported to: {Path(export_dir).resolve()}")
 
     try:
         prod_mv = client.get_model_version_by_alias(name=model_name, alias="Production")
