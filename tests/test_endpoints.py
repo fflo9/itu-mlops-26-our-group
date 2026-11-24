@@ -3,7 +3,10 @@ import base64
 import requests
 from pathlib import Path
 from fastapi.testclient import TestClient
-from src.deployment.fastapi import app
+from fastapi import FastAPI
+
+app = FastAPI(docs_url=None, openapi_url=None, redoc_url=None)
+
 
 def test_endpoint():
     #load sample metada
