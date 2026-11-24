@@ -335,18 +335,3 @@ for attempt in range(120):
     except requests.RequestException:
         print(f"[{attempt}] waiting for the API server...")
     time.sleep(2)
-
-
-#test endpoint
-test_endpoint()
-print("GET /version ->", requests.get(f"http://localhost:{port}/version").json())
-print("GET /health  ->", requests.get(f"http://localhost:{port}/health").json())
-
-test_drift(drift_default_days)
-
-api_server.should_exit = True
-if scoring_proc is not None and scoring_proc.poll() is None:
-    scoring_proc.terminate()
-    scoring_proc.wait(timeout=10)
-    print("Scoring server stopped")
-print("API server stopped")
