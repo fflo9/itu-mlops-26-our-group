@@ -51,9 +51,7 @@ from src.model.model_registry import wait_until_ready, register_model
 from src.model.model_selection import setup_mlflow_tracking, find_best_run, get_production_model, wait_for_deployment, promote_model, export_serving_model
 from src.deployment.serve_model_locally import start_scoring_server
 from src.deployment.drift_detection import load_inference_logs, filter_logs_by_time, load_baseline_stats, calculate_confidence_metrics, check_confidence_drift, check_class_distribution_drift, detect_drift
-from src.deployment.fastapi import _upstream_health
-from tests.test_endpoints import test_endpoint
-from tests.test_drift import test_drift
+from src.deployment.fastapi import app
 
 max_date = "2024-01-31"
 min_date = "2024-01-01"
@@ -75,21 +73,25 @@ transform_mean = [0.485, 0.456, 0.406]
 transform_std = [0.229, 0.224, 0.225]
 
 # Paths (relative to the project root)
-#PROJECT_ROOT = Path(__file__).resolve().parents[2]
-PROJECT_ROOT = ".../itu-mlops-26-our-group"
-artifact_dir = "artifacts"
-mlflow_state_dir = "mlflow-state"
-image_data_dir = "PROJECT_ROOT/data/images/raw"
-metadata_path = "PROJECT_ROOT/data/images/metadata.csv"
-test_data_dir = "PROJECT_ROOT/data/test"
-pytorch_model_path = artifact_dir + "/vial_cnn_model.pth"
-model_results_path = artifact_dir + "/model_results.json"
-drift_baseline_stats_path = artifact_dir + "/drift_baseline_stats.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+#PROJECT_ROOT = ".../itu-mlops-26-our-group"
+artifact_dir = PROJECT_ROOT / "artifacts"
+mlflow_state_dir = PROJECT_ROOT / "mlflow-state"
+image_data_dir = PROJECT_ROOT / "data" / "images" / "raw"
+metadata_path = PROJECT_ROOT / "data" / "images" / "metadata.csv"
+test_data_dir = PROJECT_ROOT / "data" / "test"
+
+artifact_dir.mkdir(parents=True, exist_ok=True)
+mlflow_state_dir.mkdir(parents=True, exist_ok=True)
+
+pytorch_model_path = artifact_dir / "vial_cnn_model.pth"
+model_results_path = artifact_dir / "model_results.json"
+drift_baseline_stats_path = artifact_dir / "drift_baseline_stats.json"
+class_names_path = artifact_dir / "class_names.json"
+image_statistics_path = artifact_dir / "image_statistics.json"
+inference_log_path = artifact_dir / "inference_log.json"
 drift_default_days = 7
 drift_ks_pvalue_threshold = 0.05
-class_names_path = artifact_dir + "/class_names.json"
-image_statistics_path = artifact_dir + "/image_statistics.json"
-inference_log_path = artifact_dir + "/inference_log.json"
 
 # MLflow - we log to a local sqlite db so no tracking server has to be running
 experiment_name = "vial_image_classification"
@@ -106,8 +108,6 @@ model_path = export_dir
 port = 5001
 upstream_port = 5002
 upstream_host = "127.0.0.1"
-
-app = FastAPI(docs_url=None, openapi_url=None, redoc_url=None)
 
 # Where the endpoint lives in production
 PROD_ENDPOINT = "https://mlops-itu-jtk.ondigitalocean.app"
@@ -128,6 +128,7 @@ train_loader, val_loader, test_loader = create_dataloaders(train_dataset, val_da
 
 # Save the image statistics of the training set as an artifact
 image_stats = calculate_image_statistics(train_loader)
+image_statistics_path.parent.mkdir(parents=True, exist_ok=True)
 with open(image_statistics_path, "w") as f:
     json.dump(image_stats, f, indent=2)
 print(f"Image statistics saved to {image_statistics_path}")
@@ -219,7 +220,7 @@ mlflow.log_param("classification_threshold", optimal_threshold)
 
 # Log the pyfunc model with the SimpleLoggingWrapper as the model artifact
 wrapper = SimpleLoggingWrapper(model=cnn_model)
-mlflow.pyfunc.log_model("model_pyfunc", python_model=wrapper)
+mlflow.pyfunc.log_model(name="model_pyfunc", python_model=wrapper)
 print("Logged pyfunc model to the MLflow run")
 
 #model registration
@@ -313,25 +314,3 @@ if run_id is None:
 version=promote_model(client, model_name, run_id, artifact_path)
 
 export_serving_model(client, model_name, experiment_name, artifact_path, export_dir)
-
-scoring_proc = start_scoring_server()
-print("Scoring server starting on port", upstream_port)
-
-#starting fastapi
-api_config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
-api_server = uvicorn.Server(api_config)
-
-api_thread = threading.Thread(target=api_server.run, daemon=True)
-api_thread.start()
-print(f"API server starting on http://localhost:{port} (background thread)")
-
-for attempt in range(120):
-    try:
-        r = requests.get(f"http://localhost:{port}/health", timeout=2)
-        print(f"[{attempt}] /health -> {r.status_code} {r.text.strip()}")
-        if r.status_code == 200:
-            print("Model server is ready!")
-            break
-    except requests.RequestException:
-        print(f"[{attempt}] waiting for the API server...")
-    time.sleep(2)

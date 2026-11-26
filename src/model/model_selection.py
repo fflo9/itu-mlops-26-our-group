@@ -167,45 +167,30 @@ def export_serving_model(client, model_name, experiment_name, artifact_path, exp
     model_uri, description = resolve_model_uri()
     print(f"Exporting: {description}\n  Source: {model_uri}")
 
-    #Path(export_dir).parent.mkdir(parents=True, exist_ok=True, mode=0o755)
-    #with tempfile.TemporaryDirectory(dir=Path(export_dir).parent) as tmp:
-        #download_dir = mlflow.artifacts.download_artifacts(artifact_uri=model_uri, dst_path=tmp)
-        #if Path(export_dir).exists():
-            ##shutil.rmtree(export_dir)
-            #def handle_remove_readonly(func, path, exc_info):
-                #os.chmod(path, stat.S_IWRITE)
-                #func(path)
+    export_path = Path(export_dir)
+    export_path.parent.mkdir(parents=True, exist_ok=True)
 
-            #if os.path.exists(export_dir):
-                #shutil.rmtree(export_dir, onerror=handle_remove_readonly)
-    #shutil.move(str(download_dir), export_dir)
-    #print(f"  Exported to: {Path(export_dir).resolve()}")
-    Path(export_dir).parent.mkdir(parents=True, exist_ok=True)
-
-    def handle_remove_readonly(func, path, exc_info):
-        os.chmod(path, stat.S_IWRITE)
-        func(path)
-
-    with tempfile.TemporaryDirectory(dir=Path(export_dir).parent) as tmp:
+    with tempfile.TemporaryDirectory(dir=export_path.parent) as tmp:
         download_dir = mlflow.artifacts.download_artifacts(
-        artifact_uri=model_uri,
-        dst_path=tmp
+            artifact_uri=model_uri,
+            dst_path=tmp,
         )
+        if export_path.exists():
+            shutil.rmtree(export_path, ignore_errors=True)
+        # copy while the temp dir still exists
+        shutil.copytree(download_dir, export_path)
 
-        if os.path.exists(export_dir):
-            shutil.rmtree(export_dir, onerror=handle_remove_readonly)
-
-        shutil.move(str(download_dir), export_dir)
-
-    print(f" Exported to: {Path(export_dir).resolve()}")
+    print(f"  Exported to: {export_path.resolve()}")
 
     try:
         prod_mv = client.get_model_version_by_alias(name=model_name, alias="Production")
-        trained_at = datetime.fromtimestamp(client.get_run(prod_mv.run_id).info.start_time / 1000, tz=timezone.utc).isoformat()
+        trained_at = datetime.fromtimestamp(
+            client.get_run(prod_mv.run_id).info.start_time / 1000, tz=timezone.utc
+        ).isoformat()
         version_info = {"model_version": str(prod_mv.version), "trained_at": trained_at}
     except Exception:
         version_info = {"model_version": "1", "trained_at": None}
 
-    with open(Path(export_dir) / "version.json", "w") as f:
+    with open(export_path / "version.json", "w") as f:
         json.dump(version_info, f, indent=2)
     print("Version info:", version_info)
