@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import Response
+from contextlib import asynccontextmanager
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -16,12 +17,20 @@ drift_default_days = 7
 export_dir = "models/model"
 model_path = export_dir
 
+scoring_proc = None
 
-app = FastAPI(docs_url=None, openapi_url=None, redoc_url=None)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global scoring_proc
+    scoring_proc = start_scoring_server()
+    try:
+        yield
+    finally:
+        if scoring_proc is not None and scoring_proc.poll() is None:
+            scoring_proc.terminate()
+            scoring_proc.wait(timeout=5)
 
-scoring_proc = start_scoring_server()
-
-
+app = FastAPI(lifespan=lifespan, docs_url=None, openapi_url=None, redoc_url=None)
 
 def _upstream_health():
     """Return the scoring server's /health status code, None if unreachable."""

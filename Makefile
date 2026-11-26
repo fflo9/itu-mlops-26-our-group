@@ -78,7 +78,7 @@ test_environment:
 
 ## Run pytest test suite
 test: 
-	pytest -v
+	python3 -m pytest -v
 
 ## Run the FastAPI serving app locally
 serve:
@@ -86,7 +86,7 @@ serve:
 
 ## Train the model
 train:
-	$(PYTHON_INTERPRETER) src/model/main.py
+	$(PYTHON_INTERPRETER) -m src.main
 
 ## Run data preprocessing pipeline
 preprocess:
@@ -102,7 +102,7 @@ PORT = 8000
 
 ## Build the Docker image locally
 docker-build:
-	docker build -t $(IMAGE_NAME)
+	docker build -t $(IMAGE_NAME) -f ./docker/Dockerfile.dockerfile .
 	
 ## Stop the running Docker container
 docker-stop:
@@ -110,7 +110,7 @@ docker-stop:
 
 ## Run the Dagger pipeline script
 dagger-run:
-	cd dagger && go run pipeline.go
+	cd dagger && go run .
 
 ## Run the testing pipeline
 go-test:
