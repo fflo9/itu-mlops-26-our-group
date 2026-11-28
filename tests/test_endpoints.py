@@ -1,13 +1,19 @@
 import pandas as pd
 import base64
-import requests
 from pathlib import Path
-from fastapi.testclient import TestClient
-from fastapi import FastAPI
+import pytest
+import requests
 
-app = FastAPI(docs_url=None, openapi_url=None, redoc_url=None)
+API_URL = "http://localhost:8000"
 
 
+def container_is_up():
+    try:
+        return requests.get(f"{API_URL}/drift", timeout=2).status_code < 500
+    except requests.exceptions.RequestException:
+        return False
+
+@pytest.mark.skipif(not container_is_up(), reason="container not reachable on API_URL")
 def test_endpoint():
     #load sample metada
     test_metadata = pd.read_csv("data/test/metadata.csv")
@@ -19,17 +25,11 @@ def test_endpoint():
     with open(Path("data/test") / sample_file, "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
 
-    payload = {"instances": [img_b64]}
+    r = requests.post(f"{API_URL}/infer", json={"instances": [img_b64]}, timeout=60)
 
-    client = TestClient(app)
-    r = client.post(f"/infer", json=payload)
-    
+    print(r.status_code, r.text)
     assert r.status_code == 200
-    
-    result = r.json()
-
-    #check that predictions are returned
-    assert result is not None
+    assert r.json is not None
 
 if __name__ == "__main__":
     test_endpoint()

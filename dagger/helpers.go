@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 )
@@ -16,39 +20,32 @@ func loadExistingImages(imgDir string, filenames []string) []string {
 	var found []string
 	for _, name := range filenames {
 		p := filepath.Join(imgDir, name)
-		if _, err := os.Stat(p); err == nil {
+		if checkFileExists(p) {
 			found = append(found, p)
 		}
 	}
 	return found
 }
 
-// Checks that an image name is non-empty and onctains no spaces
-// Returns false for empty strings or names with spaces and true otherwise
+// Checks that an image name is not empty
+// Returns false for empty strings and true otherwise
 func isValidImageName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, char := range name {
-		if char == ' ' {
-			return false
-		}
-	}
-	return true
+	return name != ""
 }
 
 // Checks wether filePath points to an existing file and not a missing path or directory
+// Any error from os.Stat (missing, permission denied, path through a file) counts as "no"
 // Returns true only when the file exists and is not a directory
 func checkFileExists(filePath string) bool {
 	info, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
-	return !info.IsDir() //returns true if it exists and is a file
+	return !info.IsDir()
 }
 
 // Reads the APP_ENV environment variable and returns it
-// Falling back to "deployment" when APP_ENV is unset or empty
+// Falling back to "development" when APP_ENV is unset or empty
 func getAppEnvironment() string {
 	env := os.Getenv("APP_ENV")
 
@@ -57,4 +54,30 @@ func getAppEnvironment() string {
 		return "development"
 	}
 	return env
+}
+
+const minImageSize = 64 // width and height must be at least this (the model input is 64x64)
+
+var ErrEmptyImage = errors.New("image is empty")
+
+// Checks that image data is safe to send on to the Python pipeline
+// Rejects: empty data, not a real PNG/JPEG, too small
+// Accepts everything else, because Python resizes to 64x64 anyway
+// Returns nil when the image is fine, otherwise an error that says what is wrong
+func ValidateImage(data []byte) error {
+	// nothing to check if there is no data at all
+	if len(data) == 0 {
+		return ErrEmptyImage
+	}
+
+	// DecodeConfig only reads the header (cheap), so it tells us the type and size
+	// without decoding the whole image. It fails if the data is not a real image
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("not a valid image: %w", err)
+	}
+	if cfg.Width < minImageSize || cfg.Height < minImageSize {
+		return fmt.Errorf("image too small: %dx%d, min %dx%d", cfg.Width, cfg.Height, minImageSize, minImageSize)
+	}
+	return nil
 }
