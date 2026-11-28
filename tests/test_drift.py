@@ -1,11 +1,9 @@
 from src.deployment.drift_detection import load_inference_logs, load_baseline_stats, detect_drift
-import requests
-
-
+from src.deployment.fastapi import app
+from fastapi.testclient import TestClient
 
 artifact_dir = "artifacts"
 inference_log_path = artifact_dir + "/inference_log.json"
-port = 5001
 
 def test_drift(drift_default_days=7):
     logs = load_inference_logs(inference_log_path)
@@ -24,7 +22,9 @@ def test_drift(drift_default_days=7):
 
     # The endpoint does the same check over HTTP
     print("\nGET /drift ->")
-    print(requests.get(f"http://localhost:{port}/drift").json())
+    r = TestClient(app).get("/drift")
+    assert r.status_code == 200
+    assert "overall_drift_detected" in r.json()
 
 if __name__ == "__main__":
     test_drift()
